@@ -34,7 +34,7 @@ VerusIDX provides a desktop GUI for Verus RPC daemon features, offering secure a
 
 ### Download Pre-built Binaries
 
-Download the latest release for your platform from the [Releases](https://github.com/your-org/verusidx-tauri/releases) page.
+Download the latest release for your platform from the [Releases](https://github.com/vdappdev2/verusidx-tauri/releases) page.
 
 #### macOS Installation
 If you see "VerusIDX cannot be opened because the developer cannot be verified":
@@ -76,7 +76,7 @@ sudo dpkg -i verusidx_*.deb
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/verusidx-tauri.git
+git clone https://github.com/vdappdev2/verusidx-tauri.git
 cd verusidx-tauri
 
 # Install dependencies
