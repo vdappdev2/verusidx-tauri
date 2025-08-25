@@ -493,7 +493,7 @@
       </div>
     {/if}
 
-    {#if showManualEntry || availableChains.length === 0}
+    {#if showManualEntry}
       <form onsubmit={handleManualConnect} class="space-y-4">
             <h3 class="text-lg font-semibold mb-4 text-verusidx-stone-dark dark:text-white">Manual Connection</h3>
         
