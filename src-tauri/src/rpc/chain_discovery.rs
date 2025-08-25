@@ -203,7 +203,7 @@ fn get_data_directory() -> Result<PathBuf, RpcError> {
     #[cfg(target_os = "windows")]
     {
         dirs::data_dir()
-            .map(|dir| dir.join("Roaming").join("Komodo"))
+            .map(|dir| dir.join("Komodo"))
             .ok_or_else(|| RpcError::Configuration("Could not determine Windows AppData directory".to_string()))
     }
     
@@ -232,7 +232,7 @@ fn get_verus_data_directory() -> Result<PathBuf, RpcError> {
     #[cfg(target_os = "windows")]
     {
         dirs::data_dir()
-            .map(|dir| dir.join("Roaming").join(".verus"))
+            .map(|dir| dir.join(".verus"))
             .ok_or_else(|| RpcError::Configuration("Could not determine Windows AppData directory".to_string()))
     }
     
