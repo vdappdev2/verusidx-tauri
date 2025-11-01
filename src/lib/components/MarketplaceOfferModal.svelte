@@ -41,8 +41,7 @@
       minimumSignatures: 1,
       revocationAuthority: '',
       recoveryAuthority: '',
-      privateAddress: '',
-      timelock: ''
+      privateAddress: ''
     },
     // Take offer specific fields
     deliverCurrency: '',
@@ -103,8 +102,7 @@
         minimumSignatures: 1,
         revocationAuthority: '',
         recoveryAuthority: '',
-        privateAddress: '',
-        timelock: ''
+        privateAddress: ''
       },
       deliverCurrency: '',
       deliverAmount: '',
@@ -467,13 +465,27 @@
 
     switch (selectedOfferType) {
       case 'id-for-id':
+        // Build clean identity definition (following UpdateIdentity/RecoverIdentity pattern)
+        const idForIdIdentity: any = {
+          name: formData.forIdentity.name,
+          parent: formData.forIdentity.parent,
+          primaryaddresses: formData.forIdentity.primaryAddresses?.filter(addr => addr?.trim()) || [],
+          minimumsignatures: formData.forIdentity.minimumSignatures
+        };
+        // Add optional parameters only if they have values
+        if (formData.forIdentity.revocationAuthority) {
+          idForIdIdentity.revocationauthority = formData.forIdentity.revocationAuthority;
+        }
+        if (formData.forIdentity.recoveryAuthority) {
+          idForIdIdentity.recoveryauthority = formData.forIdentity.recoveryAuthority;
+        }
+        if (formData.forIdentity.privateAddress) {
+          idForIdIdentity.privateaddress = formData.forIdentity.privateAddress;
+        }
         return {
           ...baseData,
           offer: { identity: formData.offerIdentityName },
-          for: {
-            ...formData.forIdentity,
-            primaryaddresses: formData.forIdentity.primaryaddresses?.filter(addr => addr?.trim()) || []
-          }
+          for: idForIdIdentity
         };
       
       case 'id-for-currency':
@@ -488,16 +500,30 @@
         };
       
       case 'currency-for-id':
+        // Build clean identity definition (following UpdateIdentity/RecoverIdentity pattern)
+        const currencyForIdIdentity: any = {
+          name: formData.forIdentity.name,
+          parent: formData.forIdentity.parent,
+          primaryaddresses: formData.forIdentity.primaryAddresses?.filter(addr => addr?.trim()) || [],
+          minimumsignatures: formData.forIdentity.minimumSignatures
+        };
+        // Add optional parameters only if they have values
+        if (formData.forIdentity.revocationAuthority) {
+          currencyForIdIdentity.revocationauthority = formData.forIdentity.revocationAuthority;
+        }
+        if (formData.forIdentity.recoveryAuthority) {
+          currencyForIdIdentity.recoveryauthority = formData.forIdentity.recoveryAuthority;
+        }
+        if (formData.forIdentity.privateAddress) {
+          currencyForIdIdentity.privateaddress = formData.forIdentity.privateAddress;
+        }
         return {
           ...baseData,
           offer: {
             currency: formData.offerCurrency,
             amount: parseFloat(formData.offerAmount)
           },
-          for: {
-            ...formData.forIdentity,
-            primaryaddresses: formData.forIdentity.primaryaddresses?.filter(addr => addr?.trim()) || []
-          }
+          for: currencyForIdIdentity
         };
       
       case 'currency-for-currency':
@@ -586,39 +612,53 @@
     switch (selectedOfferType) {
       case 'id-for-id':
         // User delivers identity (string), accepts identity (definition)
+        // Build clean identity definition (following UpdateIdentity/RecoverIdentity pattern - NO timelock)
+        const idForIdAccept: any = {
+          name: formData.acceptIdentityName,
+          parent: formData.forIdentity.parent,
+          primaryaddresses: formData.forIdentity.primaryAddresses.filter(addr => addr.trim()),
+          minimumsignatures: parseInt(formData.forIdentity.minimumSignatures)
+        };
+        if (formData.forIdentity.revocationAuthority) {
+          idForIdAccept.revocationauthority = formData.forIdentity.revocationAuthority;
+        }
+        if (formData.forIdentity.recoveryAuthority) {
+          idForIdAccept.recoveryauthority = formData.forIdentity.recoveryAuthority;
+        }
+        if (formData.forIdentity.privateAddress) {
+          idForIdAccept.privateaddress = formData.forIdentity.privateAddress;
+        }
         return {
           ...baseData,
           deliver: formData.deliverIdentity, // Identity name string user provides
-          accept: {
-            name: formData.acceptIdentityName,
-            parent: formData.forIdentity.parent,
-            primaryaddresses: formData.forIdentity.primaryAddresses.filter(addr => addr.trim()),
-            minimumsignatures: parseInt(formData.forIdentity.minimumSignatures),
-            ...(formData.forIdentity.revocationAuthority && { revocationauthority: formData.forIdentity.revocationAuthority }),
-            ...(formData.forIdentity.recoveryAuthority && { recoveryauthority: formData.forIdentity.recoveryAuthority }),
-            ...(formData.forIdentity.privateAddress && { privateaddress: formData.forIdentity.privateAddress }),
-            ...(formData.forIdentity.timelock && { timelock: parseInt(formData.forIdentity.timelock) })
-          }
+          accept: idForIdAccept
         };
       
       case 'id-for-currency':
         // User delivers currency, accepts identity (definition)
+        // Build clean identity definition (following UpdateIdentity/RecoverIdentity pattern - NO timelock)
+        const idForCurrencyAccept: any = {
+          name: formData.acceptIdentityName,
+          parent: formData.forIdentity.parent,
+          primaryaddresses: formData.forIdentity.primaryAddresses.filter(addr => addr.trim()),
+          minimumsignatures: parseInt(formData.forIdentity.minimumSignatures)
+        };
+        if (formData.forIdentity.revocationAuthority) {
+          idForCurrencyAccept.revocationauthority = formData.forIdentity.revocationAuthority;
+        }
+        if (formData.forIdentity.recoveryAuthority) {
+          idForCurrencyAccept.recoveryauthority = formData.forIdentity.recoveryAuthority;
+        }
+        if (formData.forIdentity.privateAddress) {
+          idForCurrencyAccept.privateaddress = formData.forIdentity.privateAddress;
+        }
         return {
           ...baseData,
           deliver: {
             currency: formData.deliverCurrency,
             amount: parseFloat(formData.deliverAmount)
           },
-          accept: {
-            name: formData.acceptIdentityName,
-            parent: formData.forIdentity.parent,
-            primaryaddresses: formData.forIdentity.primaryAddresses.filter(addr => addr.trim()),
-            minimumsignatures: parseInt(formData.forIdentity.minimumSignatures),
-            ...(formData.forIdentity.revocationAuthority && { revocationauthority: formData.forIdentity.revocationAuthority }),
-            ...(formData.forIdentity.recoveryAuthority && { recoveryauthority: formData.forIdentity.recoveryAuthority }),
-            ...(formData.forIdentity.privateAddress && { privateaddress: formData.forIdentity.privateAddress }),
-            ...(formData.forIdentity.timelock && { timelock: parseInt(formData.forIdentity.timelock) })
-          }
+          accept: idForCurrencyAccept
         };
       
       case 'currency-for-id':
@@ -753,9 +793,9 @@
         {#if typeof window !== 'undefined' && window.location.hostname === 'localhost'}
           <details class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <summary class="cursor-pointer text-sm font-medium text-yellow-700 dark:text-yellow-300">
-              🔧 Debug: Raw Offer Data (Development Only)
+              Raw Offer Data
             </summary>
-            <pre class="mt-2 text-xs overflow-auto bg-white dark:bg-verusidx-stone-dark p-2 rounded border max-h-40">{JSON.stringify(existingOffer, null, 2)}</pre>
+            <pre class="mt-2 text-xs overflow-auto bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-verusidx-mountain-mist p-2 rounded border max-h-40">{JSON.stringify(existingOffer, null, 2)}</pre>
           </details>
         {/if}
       </div>
@@ -1176,7 +1216,7 @@
               <div>
                 <p class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mb-1">Transaction ID:</p>
                 <div class="flex items-center space-x-2">
-                  <code class="flex-1 text-xs font-mono bg-white dark:bg-verusidx-stone-dark p-2 rounded border border-verusidx-mountain-mist dark:border-verusidx-stone-light break-all">
+                  <code class="flex-1 text-xs font-mono bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-verusidx-mountain-mist p-2 rounded border border-verusidx-mountain-mist dark:border-verusidx-stone-light break-all">
                     {offerTxId}
                   </code>
                   <button
@@ -1191,9 +1231,9 @@
               
               <div class="pt-3 border-t border-verusidx-mountain-mist dark:border-verusidx-stone-medium">
                 <p class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">
-                  <span class="text-yellow-600 dark:text-yellow-400">⚠️ Important:</span> 
-                  {mode === 'make' 
-                    ? 'Your offer will become active and visible to other users after blockchain confirmation. This typically takes a few minutes but may vary based on network conditions.'
+                  <span class="text-yellow-600 dark:text-yellow-400">⚠️ Important:</span>
+                  {mode === 'make'
+                    ? 'Your offer will become active and visible to other users after blockchain confirmation. This typically takes one minute but may vary based on network conditions.'
                     : 'The atomic swap will execute automatically after blockchain confirmation. Both parties will receive their assets or the transaction will be reverted.'}
                 </p>
               </div>

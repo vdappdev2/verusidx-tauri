@@ -1091,7 +1091,7 @@
         <!-- Cost Warning -->
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
           <p class="text-yellow-700 dark:text-yellow-300 text-sm">
-            ⚠️ <strong>Cost:</strong> Currency creation costs 200 VRSC. Ensure your identity "{formData.name}@" has sufficient funds.
+            ⚠️ <strong>Cost:</strong> Ensure your identity "{formData.name}@" has sufficient funds before proceeding.
           </p>
         </div>
 

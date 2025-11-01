@@ -1,6 +1,6 @@
 # VerusIDX
 
-Desktop marketplace application for Verus PBaaS network
+Desktop UI/UX for Verus PBaaS network
 
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -17,6 +17,7 @@ VerusIDX provides a desktop GUI for Verus RPC daemon features, offering secure a
 - **DeFi Operations**: Access to 11 different DeFi operation types
 - **Multi-chain Support**: VRSC, VRSCTEST, VARRR, VDEX, CHIPS
 - **Secure Credential Storage**: OS keychain integration for RPC credentials
+- **Charts**: Tradingview Lightweight Charts implementation
 
 ## Tech Stack
 
@@ -153,6 +154,11 @@ VerusIDX follows a security-first design:
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Attribution
+
+TradingView Lightweight Charts™
+Copyright (с) 2025 TradingView, Inc. https://www.tradingview.com/
 
 ## Links
 

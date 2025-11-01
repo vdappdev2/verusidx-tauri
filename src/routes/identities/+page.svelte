@@ -9,12 +9,25 @@
   import RecoverIdentityModal from "$lib/components/RecoverIdentityModal.svelte";
   import UpdateIdentityModal from "$lib/components/UpdateIdentityModal.svelte";
   import TimelockIdentityModal from "$lib/components/TimelockIdentityModal.svelte";
+  import TimelockWarningModal from "$lib/components/TimelockWarningModal.svelte";
 
   let isCreationModalOpen = $state(false);
   let isRevokeModalOpen = $state(false);
   let isRecoverModalOpen = $state(false);
   let isUpdateModalOpen = $state(false);
+  let isTimelockWarningModalOpen = $state(false);
   let isTimelockModalOpen = $state(false);
+
+  // Check if user has seen the timelock warning this session
+  const TIMELOCK_WARNING_KEY = 'timelockWarningShown';
+  let hasSeenTimelockWarning = $state(false);
+
+  // Load from sessionStorage on mount
+  $effect(() => {
+    if (typeof window !== 'undefined') {
+      hasSeenTimelockWarning = sessionStorage.getItem(TIMELOCK_WARNING_KEY) === 'true';
+    }
+  });
 
   connectionStore.subscribe(state => {
     if (!state.current?.isConnected) {
@@ -66,11 +79,33 @@
   }
 
   function openTimelockModal() {
-    isTimelockModalOpen = true;
+    // Check if user has seen warning this session
+    if (hasSeenTimelockWarning) {
+      // Directly open timelock modal
+      isTimelockModalOpen = true;
+    } else {
+      // Show warning modal first
+      isTimelockWarningModalOpen = true;
+    }
   }
 
   function closeTimelockModal() {
     isTimelockModalOpen = false;
+  }
+
+  function handleTimelockWarningProceed() {
+    // Mark as seen for this session
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(TIMELOCK_WARNING_KEY, 'true');
+      hasSeenTimelockWarning = true;
+    }
+    // Close warning modal and open timelock modal
+    isTimelockWarningModalOpen = false;
+    isTimelockModalOpen = true;
+  }
+
+  function handleTimelockWarningCancel() {
+    isTimelockWarningModalOpen = false;
   }
 </script>
 
@@ -183,6 +218,13 @@
 <UpdateIdentityModal
   isOpen={isUpdateModalOpen}
   onClose={closeUpdateModal}
+/>
+
+<!-- Timelock Warning Modal -->
+<TimelockWarningModal
+  isOpen={isTimelockWarningModalOpen}
+  onProceed={handleTimelockWarningProceed}
+  onCancel={handleTimelockWarningCancel}
 />
 
 <!-- Timelock Identity Modal -->

@@ -16,12 +16,12 @@
   // Form state
   let formData = $state({
     name: '',
+    parent: '',
     primaryAddresses: [''],
     minimumSignatures: 1,
     revocationAuthority: '',
     recoveryAuthority: '',
     privateAddress: '',
-    timelock: '',
     tokenUpdate: false,
     feeOffer: '',
     sourceOfFunds: ''
@@ -70,12 +70,12 @@
   function resetForm() {
     formData = {
       name: '',
+      parent: '',
       primaryAddresses: [''],
       minimumSignatures: 1,
       revocationAuthority: '',
       recoveryAuthority: '',
       privateAddress: '',
-      timelock: '',
       tokenUpdate: false,
       feeOffer: '',
       sourceOfFunds: ''
@@ -241,6 +241,11 @@
         minimumsignatures: formData.minimumSignatures
       };
 
+      // Add parent if provided (required for sub-IDs and PBaaS chains)
+      if (formData.parent) {
+        jsonIdentity.parent = formData.parent;
+      }
+
       // Add optional parameters to identity
       if (formData.revocationAuthority) {
         jsonIdentity.revocationauthority = formData.revocationAuthority;
@@ -249,10 +254,11 @@
         jsonIdentity.recoveryauthority = formData.recoveryAuthority;
       }
       if (formData.privateAddress) {
-        jsonIdentity.privateaddress = formData.privateAddress;
-      }
-      if (formData.timelock) {
-        jsonIdentity.timelock = parseInt(formData.timelock);
+        if (formData.privateAddress === "null") {
+          jsonIdentity.privateaddress = null;
+        } else {
+          jsonIdentity.privateaddress = formData.privateAddress;
+        }
       }
 
       // Build parameters
@@ -347,12 +353,30 @@
           id="name"
           type="text"
           bind:value={formData.name}
-          placeholder="e.g., myidentity@"
+          placeholder="e.g., myidentity"
           class="w-full p-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium rounded-lg bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-white"
           disabled={isSubmitting}
         />
         <p class="mt-1 text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">
-          The name of the identity to update (include @ suffix)
+          The name of the identity to update (without @ suffix)
+        </p>
+      </div>
+
+      <!-- Parent Name (for Sub-IDs) -->
+      <div>
+        <label for="parent" class="block text-sm font-medium text-verusidx-stone-dark dark:text-white mb-1">
+          Parent Name (Optional)
+        </label>
+        <input
+          id="parent"
+          type="text"
+          bind:value={formData.parent}
+          placeholder="e.g., SomeCurrency or currencyname.pbaaschain"
+          class="w-full p-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium rounded-lg bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-white"
+          disabled={isSubmitting}
+        />
+        <p class="mt-1 text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">
+          required for sub-IDs & PBaaS chains, optional for Root IDs (name.vrsc@)
         </p>
       </div>
 
@@ -486,12 +510,13 @@
                 <option>Loading private addresses...</option>
               </select>
             {:else}
-              <select 
+              <select
                 bind:value={formData.privateAddress}
                 class="w-full p-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium rounded-lg bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-white"
                 disabled={isSubmitting}
               >
                 <option value="">Select a private address (optional)</option>
+                <option value="null">Remove z-address</option>
                 {#each privateAddresses as addr}
                   <option value={addr}>{addr} (Private)</option>
                 {/each}
@@ -500,20 +525,6 @@
             <p class="text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mt-1">
               Private Z-address associated with this identity
             </p>
-          </div>
-
-          <!-- Timelock -->
-          <div>
-            <label class="block text-sm font-medium text-verusidx-stone-dark dark:text-white mb-2">
-              Timelock (Block Height)
-            </label>
-            <input 
-              type="number" 
-              bind:value={formData.timelock} 
-              placeholder="Block height when identity becomes active"
-              class="w-full p-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium rounded-lg bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-white"
-              disabled={isSubmitting}
-            />
           </div>
         </div>
       </details>

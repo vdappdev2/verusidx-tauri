@@ -4,9 +4,10 @@
   interface Props {
     operations: any[];
     cardClass?: string;
+    onRefresh?: () => void;
   }
 
-  let { operations, cardClass = '' }: Props = $props();
+  let { operations, cardClass = '', onRefresh }: Props = $props();
 
   function formatOpId(opid: string): string {
     return `${opid.slice(0, 8)}...${opid.slice(-8)}`;
@@ -51,7 +52,7 @@
   }
 </script>
 
-<ExpandableCard title="Recent Operations" {cardClass} modalSize="xl">
+<ExpandableCard title="Recent Operations" {cardClass} modalSize="xl" {onRefresh}>
   <div slot="preview">
     {#if operations.length === 0}
       <div class="text-center py-4 text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">

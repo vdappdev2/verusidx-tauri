@@ -30,17 +30,17 @@ impl VerusRpcClient {
 
     /// Get specific identity details
     pub async fn get_identity(
-        &self, 
-        name: &str, 
+        &self,
+        name: &str,
         height: Option<u64>,
         tx_proof: Option<bool>,
         tx_proof_height: Option<u64>,
         chain: Option<&str>
     ) -> Result<Value, RpcError> {
         let mut params = vec![];
-        
+
         params.push(json!(name));
-        
+
         if let Some(h) = height {
             params.push(json!(h));
             if let Some(proof) = tx_proof {
@@ -51,6 +51,38 @@ impl VerusRpcClient {
             }
         }
         self.call_with_chain("getidentity", json!(params), chain).await
+    }
+
+    /// Get identity content with full contentmultimap history
+    ///
+    /// Returns complete time-series data from an identity's contentmultimap.
+    /// Useful for reading historical updates and VDXF-keyed data structures.
+    pub async fn get_identity_content(
+        &self,
+        name: &str,
+        heightstart: Option<u64>,
+        heightend: Option<u64>,
+        txproofs: Option<bool>,
+        vdxfkey: Option<&str>,
+        chain: Option<&str>
+    ) -> Result<Value, RpcError> {
+        let mut params = vec![json!(name)];
+
+        // Add optional parameters in order
+        if let Some(start) = heightstart {
+            params.push(json!(start));
+            if let Some(end) = heightend {
+                params.push(json!(end));
+                if let Some(proofs) = txproofs {
+                    params.push(json!(proofs));
+                    if let Some(key) = vdxfkey {
+                        params.push(json!(key));
+                    }
+                }
+            }
+        }
+
+        self.call_with_chain("getidentitycontent", json!(params), chain).await
     }
 
     /// Reserve identity name (step 1 of registration)
@@ -165,7 +197,7 @@ impl VerusRpcClient {
         source_of_funds: Option<&str>
     ) -> Result<Value, RpcError> {
         let mut params = vec![json_identity.clone()];
-        
+
         // Add optional parameters in the correct order
         if let Some(ret_tx) = return_tx {
             params.push(json!(ret_tx));
@@ -179,7 +211,65 @@ impl VerusRpcClient {
                 }
             }
         }
-        
+
         self.call("recoveridentity", json!(params)).await
+    }
+
+    /// Verify a signed message
+    ///
+    /// Verifies that a message was signed by a specific address or identity.
+    /// Used for ticket authenticity verification in vlotto.
+    pub async fn verify_message(
+        &self,
+        taddr_or_identity: &str,
+        signature: &str,
+        message: &str,
+        checklatest: Option<bool>,
+        chain: Option<&str>
+    ) -> Result<bool, RpcError> {
+        let mut params = vec![
+            json!(taddr_or_identity),
+            json!(signature),
+            json!(message)
+        ];
+
+        if let Some(check) = checklatest {
+            params.push(json!(check));
+        }
+
+        let result: Value = self.call_with_chain("verifymessage", json!(params), chain).await?;
+
+        // Result should be a boolean
+        result.as_bool()
+            .ok_or(RpcError::InvalidResponse)
+    }
+
+    /// Verify a signed hash
+    ///
+    /// Verifies that a hash was signed by a specific address or identity.
+    /// Used for ticket authenticity verification in vlotto.
+    pub async fn verify_hash(
+        &self,
+        taddr_or_identity: &str,
+        signature: &str,
+        hexhash: &str,
+        checklatest: Option<bool>,
+        chain: Option<&str>
+    ) -> Result<bool, RpcError> {
+        let mut params = vec![
+            json!(taddr_or_identity),
+            json!(signature),
+            json!(hexhash)
+        ];
+
+        if let Some(check) = checklatest {
+            params.push(json!(check));
+        }
+
+        let result: Value = self.call_with_chain("verifyhash", json!(params), chain).await?;
+
+        // Result should be a boolean
+        result.as_bool()
+            .ok_or(RpcError::InvalidResponse)
     }
 }

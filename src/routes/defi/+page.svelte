@@ -236,6 +236,7 @@
     <OperationCard
       {operations}
       cardClass="bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-white"
+      onRefresh={loadOperations}
     />
 
   </div>

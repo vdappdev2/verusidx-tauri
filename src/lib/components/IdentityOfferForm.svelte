@@ -11,14 +11,13 @@
       revocationAuthority: string;
       recoveryAuthority: string;
       privateAddress: string;
-      timelock: string;
     };
     onIdentityChange: (identityData: any) => void;
     mode?: 'offer' | 'accept';
     disabled?: boolean;
   }
 
-  let { 
+  let {
     identityData = {
       name: '',
       parent: '',
@@ -26,12 +25,11 @@
       minimumSignatures: 1,
       revocationAuthority: '',
       recoveryAuthority: '',
-      privateAddress: '',
-      timelock: ''
-    }, 
-    onIdentityChange, 
+      privateAddress: ''
+    },
+    onIdentityChange,
     mode = 'offer',
-    disabled = false 
+    disabled = false
   }: Props = $props();
 
   // Create local reactive copy to avoid prop mutation issues
@@ -42,8 +40,7 @@
     minimumSignatures: identityData.minimumSignatures || 1,
     revocationAuthority: identityData.revocationAuthority || '',
     recoveryAuthority: identityData.recoveryAuthority || '',
-    privateAddress: identityData.privateAddress || '',
-    timelock: identityData.timelock || ''
+    privateAddress: identityData.privateAddress || ''
   });
 
   // Note: Removed automatic prop syncing to prevent resetting user changes
@@ -175,8 +172,7 @@
       minimumSignatures: localIdentityData.minimumSignatures, // Keep camelCase for internal state
       revocationAuthority: localIdentityData.revocationAuthority || '',
       recoveryAuthority: localIdentityData.recoveryAuthority || '',
-      privateAddress: localIdentityData.privateAddress || '',
-      timelock: localIdentityData.timelock || ''
+      privateAddress: localIdentityData.privateAddress || ''
     };
 
     onIdentityChange(identity);
@@ -415,20 +411,6 @@
           Private Z-address associated with this identity
         </p>
       </div>
-
-      <!-- Timelock -->
-      <div>
-        <label class="block text-sm font-medium text-verusidx-stone-dark dark:text-white mb-2">
-          Timelock (Block Height)
-        </label>
-        <input 
-          type="number" 
-          bind:value={localIdentityData.timelock} 
-          disabled={disabled}
-          placeholder="Block height when identity becomes active"
-          class="w-full p-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium rounded-lg bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-white disabled:opacity-50"
-        />
-      </div>
     </div>
   </details>
 
@@ -447,9 +429,6 @@
       {/if}
       {#if localIdentityData.privateAddress}
         <p><span class="font-medium">Private Address:</span> {localIdentityData.privateAddress}</p>
-      {/if}
-      {#if localIdentityData.timelock}
-        <p><span class="font-medium">Timelock:</span> Block {localIdentityData.timelock}</p>
       {/if}
     </div>
   </div>

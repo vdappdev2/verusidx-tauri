@@ -19,6 +19,7 @@
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/identities', label: 'Identities' },
     { path: '/currencies', label: 'Currencies' },
+    { path: '/charts', label: 'Charts' },
     { path: '/defi', label: 'DeFi Operations' },
     { path: '/marketplace', label: 'Marketplace' },
     { path: '/wallet', label: 'Wallet' }

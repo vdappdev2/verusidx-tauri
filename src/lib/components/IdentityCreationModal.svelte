@@ -17,6 +17,10 @@
   let currentStep = $state<'name-reservation' | 'identity-registration' | 'waiting-confirmation' | 'success'>('name-reservation');
   let commitmentResult = $state<any>(null);
   let registrationTxId = $state<string | null>(null);
+  let commitmentBlockHeight = $state<number | null>(null);
+  let currentBlockHeight = $state<number | null>(null);
+  let copiedCommitment = $state(false);
+  let showCloseConfirmation = $state(false);
 
   // Form state
   let formData = $state({
@@ -115,6 +119,11 @@
     feeCalculationError = null;
     // Reset success state
     registrationTxId = null;
+    // Reset block tracking state
+    commitmentBlockHeight = null;
+    currentBlockHeight = null;
+    copiedCommitment = false;
+    showCloseConfirmation = false;
     if (blockCheckInterval) {
       clearInterval(blockCheckInterval);
       blockCheckInterval = null;
@@ -355,12 +364,24 @@
       });
 
       console.log('Name commitment result:', result);
-      
+
       if (result && typeof result === 'object') {
         // Store the complete commitment result for registeridentity
         commitmentResult = result;
-        
+
         if ((result as any).txid) {
+          // Get current block height to track confirmation
+          try {
+            const chainParam = getChainParam(connectionState?.selectedChain);
+            const blockCount = await invoke('get_block_count', { chain: chainParam }) as number;
+            commitmentBlockHeight = blockCount;
+            currentBlockHeight = blockCount;
+            console.log('📊 Commitment made at block height:', commitmentBlockHeight);
+          } catch (blockErr) {
+            console.error('Failed to get block height:', blockErr);
+            // Continue anyway - we'll use time-based fallback
+          }
+
           currentStep = 'waiting-confirmation';
           startBlockConfirmationCheck();
         } else {
@@ -381,46 +402,43 @@
 
   function startBlockConfirmationCheck() {
     isWaitingBlocks = true;
-    
-    // Check every 30 seconds for block confirmation
+    console.log('⏳ Starting block confirmation polling...');
+
+    // Check every 10 seconds for new block
     blockCheckInterval = setInterval(async () => {
       try {
-        // In a real implementation, you'd check if the commitment transaction
-        // has been confirmed by checking block height or transaction status
         const chainParam = getChainParam(connectionState?.selectedChain);
-        console.log('[IdentityCreationModal]: Block count check for chain:', connectionState?.selectedChain, 'param:', chainParam);
-        const blockCount = await invoke('get_block_count', { chain: chainParam });
-        console.log('Current block count:', blockCount);
-        
-        // For demo purposes, we'll simulate waiting 2 minutes then allowing registration
-        // In reality, you'd check the actual confirmation status
-        setTimeout(() => {
-          if (isWaitingBlocks) {
-            isWaitingBlocks = false;
-            currentStep = 'identity-registration';
-            if (blockCheckInterval) {
-              clearInterval(blockCheckInterval);
-              blockCheckInterval = null;
-            }
-          }
-        }, 120000); // 2 minutes
-        
-      } catch (err) {
-        console.error('Block check failed:', err);
-      }
-    }, 30000);
+        const blockCount = await invoke('get_block_count', { chain: chainParam }) as number;
+        currentBlockHeight = blockCount;
 
-    // Auto-proceed after 2 minutes for demo
+        console.log('📊 Block check - Commitment:', commitmentBlockHeight, 'Current:', blockCount);
+
+        // Check if a new block has been mined (need at least one confirmation)
+        if (commitmentBlockHeight !== null && blockCount > commitmentBlockHeight) {
+          console.log('✅ New block confirmed! Advancing to identity registration');
+          isWaitingBlocks = false;
+          currentStep = 'identity-registration';
+
+          if (blockCheckInterval) {
+            clearInterval(blockCheckInterval);
+            blockCheckInterval = null;
+          }
+        }
+      } catch (err) {
+        console.error('❌ Block check failed:', err);
+      }
+    }, 10000); // Check every 10 seconds
+
+    // Safety timeout after 15 minutes (in case block times are very long)
     setTimeout(() => {
-      if (currentStep === 'waiting-confirmation') {
+      if (currentStep === 'waiting-confirmation' && blockCheckInterval) {
+        console.log('⚠️ Block confirmation timeout (15 minutes) - proceeding anyway');
         isWaitingBlocks = false;
         currentStep = 'identity-registration';
-        if (blockCheckInterval) {
-          clearInterval(blockCheckInterval);
-          blockCheckInterval = null;
-        }
+        clearInterval(blockCheckInterval);
+        blockCheckInterval = null;
       }
-    }, 120000);
+    }, 900000); // 15 minutes
   }
 
   async function handleIdentityRegistration(event: SubmitEvent) {
@@ -442,70 +460,10 @@
     feeCalculationError = null;
 
     try {
-      // Calculate registration fee first
-      console.log('💰 Calculating registration fee...');
-      
-      // Determine which currency to query for fees
-      let currencyToQuery: string;
-      if (!formData.parentNameOrId || formData.parentNameOrId.trim() === '') {
-        // Root ID - use chain base currency
-        currencyToQuery = 'vrsctest'; // TODO: make this dynamic based on current chain
-      } else {
-        // Sub-ID - use parent currency
-        currencyToQuery = formData.parentNameOrId.trim();
-      }
-
-      console.log('💰 Querying currency for fees:', currencyToQuery);
-      
-      // Get currency definition to extract fee information
-      const chainParam = getChainParam(connectionState?.selectedChain);
-      console.log('[IdentityCreationModal]: Currency query for chain:', connectionState?.selectedChain, 'param:', chainParam);
-      const currencyResult = await invoke('get_currency', {
-        currencyName: currencyToQuery,
-        height: null,
-        chain: chainParam
-      });
-
-      console.log('💰 Currency result:', currencyResult);
-
-      if (!currencyResult || typeof currencyResult !== 'object') {
-        throw new Error(`Failed to get currency definition for ${currencyToQuery}`);
-      }
-
-      // Extract fee information from currency definition
-      const idRegistrationFees = (currencyResult as any).idregistrationfees;
-      const idReferralLevels = (currencyResult as any).idreferrallevels || 0;
-
-      console.log('💰 Fee info - Base:', idRegistrationFees, 'Referral levels:', idReferralLevels);
-
-      if (typeof idRegistrationFees !== 'number') {
-        throw new Error(`Currency ${currencyToQuery} does not specify idregistrationfees`);
-      }
-
-      // Calculate final fee with referral discount if applicable
-      const hasReferral = formData.referral && formData.referral.trim() !== '';
-      let finalFee: number;
-
-      if (!hasReferral || idReferralLevels === 0) {
-        finalFee = idRegistrationFees;
-        console.log('💰 No referral discount applied - fee:', finalFee);
-      } else {
-        // Apply referral discount: fee = baseFee - (baseFee ÷ (level + 2))
-        const discount = idRegistrationFees / (idReferralLevels + 2);
-        finalFee = idRegistrationFees - discount;
-        console.log('💰 Referral discount applied - base:', idRegistrationFees, 'discount:', discount, 'final:', finalFee);
-      }
-
-      // Format to 8 decimal places
-      const calculatedFee = finalFee.toFixed(8);
-      console.log('✅ Fee calculation completed:', calculatedFee);
-      
-      isCalculatingFee = false;
-
       // Build identity object as per Verus RPC spec
       const identity = {
         name: formData.identityName,
-        parent: formData.parentNameOrId || undefined,  // Add parent for sub-IDs
+        parent: formData.parentNameOrId || undefined,
         primaryaddresses: formData.primaryAddresses.filter(addr => addr.trim()),
         minimumsignatures: formData.minimumSignatures,
         revocationauthority: formData.revocationAuthority || undefined,
@@ -521,96 +479,70 @@
         }
       });
 
-      const result = await invoke('register_identity', {
-        txid: commitmentResult.txid,
-        namereservation: commitmentResult.namereservation,
-        identity: identity,
-        returnTx: false,
-        feeOffer: parseFloat(calculatedFee),
-        sourceOfFunds: formData.sourceOfFunds || null,
-        chain: chainParam
-      });
+      // First attempt: Call with null feeOffer to get daemon's expected fee
+      try {
+        const result = await invoke('register_identity', {
+          txid: commitmentResult.txid,
+          namereservation: commitmentResult.namereservation,
+          identity: identity,
+          returnTx: false,
+          feeOffer: null,
+          sourceOfFunds: formData.sourceOfFunds || null,
+          chain: chainParam
+        });
 
-      console.log('Identity registration result:', result);
-      
-      // Store transaction ID and transition to success step
-      registrationTxId = typeof result === 'string' ? result : (result as any).txid || String(result);
-      
-      // Show success toast
-      showSuccess('Success: identity created', { txid: registrationTxId });
-      
-      currentStep = 'success';
-      
-      // Notify parent component if needed
-      if (onSuccess) {
-        onSuccess();
-      }
-      
-    } catch (err) {
-      console.error('Identity registration failed:', err);
-      
-      // Check if this is a fee calculation error
-      if (err && typeof err === 'string' && err.includes('Failed to get currency definition')) {
-        // Provide fallback fee for vrsctest root IDs
-        if (!formData.parentNameOrId || formData.parentNameOrId.trim() === '') {
-          console.log('💰 Fee calculation failed, using fallback fee for root ID');
-          feeCalculationError = `Fee calculation failed, using default fee: ${err}`;
-          
-          try {
-            // Retry with fallback fee
-            const identity = {
-              name: formData.identityName,
-              parent: formData.parentNameOrId || undefined,  // Add parent for sub-IDs
-              primaryaddresses: formData.primaryAddresses.filter(addr => addr.trim()),
-              minimumsignatures: formData.minimumSignatures,
-              revocationauthority: formData.revocationAuthority || undefined,
-              recoveryauthority: formData.recoveryAuthority || undefined,
-              privateaddress: formData.privateAddress || undefined,
-              timelock: formData.timelock ? parseInt(formData.timelock) : undefined
-            };
+        // If first attempt succeeds (shouldn't happen but handle it)
+        console.log('✅ Registration succeeded on first attempt:', result);
+        registrationTxId = typeof result === 'string' ? result : (result as any).txid || String(result);
+        showSuccess('Success: identity created', { txid: registrationTxId });
+        currentStep = 'success';
+        if (onSuccess) onSuccess();
 
-            // Remove undefined values to clean up the object
-            Object.keys(identity).forEach(key => {
-              if ((identity as any)[key] === undefined) {
-                delete (identity as any)[key];
-              }
-            });
+      } catch (firstErr) {
+        // Parse the error message to extract required fee
+        const errorStr = typeof firstErr === 'string' ? firstErr : String(firstErr);
+        const feeMatch = errorStr.match(/Fee offer must be at least ([\d.]+)/);
 
-            console.log('[IdentityCreationModal]: Identity registration (fallback) for chain:', connectionState?.selectedChain, 'param:', chainParam);
-            const result = await invoke('register_identity', {
-              txid: commitmentResult.txid,
-              namereservation: commitmentResult.namereservation,
-              identity: identity,
-              returnTx: false,
-              feeOffer: 100.0, // Fallback fee for vrsctest root IDs
-              sourceOfFunds: formData.sourceOfFunds || null,
-              chain: chainParam
-            });
+        if (feeMatch && feeMatch[1]) {
+          const requiredFee = parseFloat(feeMatch[1]);
+          isCalculatingFee = false;
 
-            console.log('Identity registration result (with fallback fee):', result);
-            
-            // Store transaction ID and transition to success step
-            registrationTxId = typeof result === 'string' ? result : (result as any).txid || String(result);
-            
-            // Show success toast
-            showSuccess('Success: identity created', { txid: registrationTxId });
-            
-            currentStep = 'success';
-            
-            // Notify parent component if needed
-            if (onSuccess) {
-              onSuccess();
-            }
-            
-            return; // Exit successfully
-            
-          } catch (retryErr) {
-            console.error('Identity registration failed even with fallback fee:', retryErr);
-            error = typeof retryErr === 'string' ? retryErr : 'Identity registration failed even with fallback fee';
+          // Second attempt: Retry with the required fee
+          const result = await invoke('register_identity', {
+            txid: commitmentResult.txid,
+            namereservation: commitmentResult.namereservation,
+            identity: identity,
+            returnTx: false,
+            feeOffer: requiredFee,
+            sourceOfFunds: formData.sourceOfFunds || null,
+            chain: chainParam
+          });
+
+          console.log('✅ Identity registration succeeded:', result);
+
+          // Store transaction ID and transition to success step
+          registrationTxId = typeof result === 'string' ? result : (result as any).txid || String(result);
+
+          // Show success toast
+          showSuccess('Success: identity created', { txid: registrationTxId });
+
+          currentStep = 'success';
+
+          // Notify parent component if needed
+          if (onSuccess) {
+            onSuccess();
           }
+
+        } else {
+          // Error didn't match expected pattern, show original error to user
+          error = errorStr;
+          showError(errorStr);
+          return; // Don't throw, just show error and stop
         }
       }
-      
+
+    } catch (err) {
+      console.error('❌ Identity registration failed:', err);
       error = typeof err === 'string' ? err : 'Identity registration failed';
       showError(error);
     } finally {
@@ -625,6 +557,47 @@
     if (blockCheckInterval) {
       clearInterval(blockCheckInterval);
       blockCheckInterval = null;
+    }
+  }
+
+  function handleCloseWithConfirmation() {
+    if (currentStep === 'waiting-confirmation' && !showCloseConfirmation) {
+      showCloseConfirmation = true;
+    } else {
+      onClose();
+      showCloseConfirmation = false;
+    }
+  }
+
+  function cancelCloseConfirmation() {
+    showCloseConfirmation = false;
+  }
+
+  async function copyCommitmentToClipboard() {
+    if (!commitmentResult) return;
+
+    try {
+      // Reorder the JSON to show txid first and namereservation fields in specific order
+      const orderedResult = {
+        txid: commitmentResult.txid,
+        namereservation: {
+          version: commitmentResult.namereservation?.version,
+          name: commitmentResult.namereservation?.name,
+          parent: commitmentResult.namereservation?.parent,
+          salt: commitmentResult.namereservation?.salt,
+          referral: commitmentResult.namereservation?.referral,
+          nameid: commitmentResult.namereservation?.nameid
+        }
+      };
+
+      const json = JSON.stringify(orderedResult, null, 2);
+      await navigator.clipboard.writeText(json);
+      copiedCommitment = true;
+      setTimeout(() => {
+        copiedCommitment = false;
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
     }
   }
 
@@ -671,7 +644,7 @@
   });
 </script>
 
-<Modal {isOpen} onclose={onClose} title="Create New Identity" size="xl">
+<Modal {isOpen} onclose={onClose} title="Create New Identity" size="xl" preventBackdropClose={true}>
   <div class="p-6">
     <!-- Step indicator -->
     <div class="flex items-center space-x-3 mb-6">
@@ -789,19 +762,19 @@
           </p>
         </div>
 
-        <!-- Parent Name or ID (for Sub-IDs) -->
+        <!-- Parent Name (for Sub-IDs) -->
         <div>
           <label class="block text-sm font-medium text-verusidx-stone-dark dark:text-white mb-2">
-            Parent Name or ID (Optional)
+            Parent Name (Optional)
           </label>
-          <input 
-            type="text" 
-            bind:value={formData.parentNameOrId} 
-            placeholder="e.g. SomeCurrency@ or leave empty for root ID"
+          <input
+            type="text"
+            bind:value={formData.parentNameOrId}
+            placeholder="e.g. SomeCurrency or currencyname.pbaaschain"
             class="w-full p-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium rounded-lg bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-white"
           />
           <p class="text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mt-1">
-            For sub-IDs: specify parent currency. Leave empty for root ID (name.vrsctest@)
+            required for subID & PBAAS chains, optional for Root IDs (name.vrsc@)
           </p>
         </div>
 
@@ -867,24 +840,77 @@
           Your name commitment transaction is being confirmed on the blockchain.
         </p>
         
-        {#if commitmentResult?.txid}
+        {#if commitmentResult}
           <div class="bg-verusidx-snow-ice dark:bg-verusidx-stone-medium rounded-lg p-4 mb-4">
-            <p class="text-sm font-medium text-verusidx-stone-dark dark:text-white">Transaction ID:</p>
-            <p class="text-xs font-mono text-verusidx-mountain-grey dark:text-verusidx-mountain-mist break-all">
-              {commitmentResult.txid}
+            <div class="flex justify-between items-center mb-2">
+              <p class="text-sm font-medium text-verusidx-stone-dark dark:text-white">Name Commitment Data</p>
+              <button
+                onclick={copyCommitmentToClipboard}
+                class="px-3 py-1 text-xs bg-verusidx-mountain-blue hover:bg-verusidx-lake-blue dark:bg-verusidx-turquoise-deep dark:hover:bg-verusidx-turquoise-bright text-white rounded transition-colors"
+              >
+                {copiedCommitment ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+            <pre class="text-xs font-mono text-verusidx-mountain-grey dark:text-verusidx-mountain-mist bg-white dark:bg-verusidx-stone-dark p-3 rounded overflow-x-auto max-h-64">{JSON.stringify({
+  txid: commitmentResult.txid,
+  namereservation: {
+    version: commitmentResult.namereservation?.version,
+    name: commitmentResult.namereservation?.name,
+    parent: commitmentResult.namereservation?.parent,
+    salt: commitmentResult.namereservation?.salt,
+    referral: commitmentResult.namereservation?.referral,
+    nameid: commitmentResult.namereservation?.nameid
+  }
+}, null, 2)}</pre>
+            <p class="text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mt-2">
+              Save this data for your records. You'll need it if you need to recover this registration.
             </p>
           </div>
         {/if}
 
-        <div class="flex space-x-4">
+        {#if commitmentBlockHeight !== null && currentBlockHeight !== null}
+          <div class="bg-verusidx-lake-deep/10 dark:bg-verusidx-turquoise-deep/20 border border-verusidx-turquoise-light dark:border-verusidx-turquoise-deep rounded-lg p-4 mb-4">
+            <p class="text-sm text-verusidx-stone-dark dark:text-white">
+              <span class="font-medium">Block Progress:</span>
+              {currentBlockHeight} / {commitmentBlockHeight + 1}
+            </p>
+            <p class="text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mt-1">
+              Waiting for block {commitmentBlockHeight + 1} (current: {currentBlockHeight})
+            </p>
+          </div>
+        {/if}
+
+        {#if showCloseConfirmation}
+          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
+            <div class="flex items-start space-x-2 mb-3">
+              <span class="text-yellow-600 dark:text-yellow-400 text-xl">⚠️</span>
+              <div>
+                <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">Warning: Close Modal?</h3>
+                <p class="text-yellow-700 dark:text-yellow-300 text-sm">
+                  Make sure you have copied your name commitment data above before closing. If you lose this data, you may not be able to complete the identity registration.
+                </p>
+              </div>
+            </div>
+            <div class="flex space-x-3">
+              <button
+                onclick={cancelCloseConfirmation}
+                class="px-4 py-2 bg-white dark:bg-verusidx-stone-dark text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800 rounded-lg hover:bg-yellow-50 dark:hover:bg-verusidx-stone-medium transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onclick={onClose}
+                class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800 text-white rounded-lg transition-colors text-sm"
+              >
+                Yes, Close Anyway
+              </button>
+            </div>
+          </div>
+        {/if}
+
+        <div class="flex justify-center">
           <button
-            onclick={goBackToNameReservation}
-            class="px-6 py-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium text-verusidx-stone-dark dark:text-white rounded-lg hover:bg-verusidx-mountain-mist dark:hover:bg-verusidx-stone-medium transition-colors"
-          >
-            Back
-          </button>
-          <button
-            onclick={onClose}
+            onclick={handleCloseWithConfirmation}
             class="px-6 py-3 bg-verusidx-mountain-grey hover:bg-verusidx-stone-dark text-white rounded-lg transition-colors"
           >
             Close
@@ -1110,55 +1136,15 @@
           </p>
         </div>
 
-        <!-- Registration Fee Information -->
-        <div class="bg-verusidx-lake-deep/10 dark:bg-verusidx-turquoise-deep/20 border border-verusidx-turquoise-light dark:border-verusidx-turquoise-deep rounded-lg p-4">
-          <h4 class="font-medium text-verusidx-stone-dark dark:text-white mb-2">💰 Registration Fee</h4>
-          {#if isCalculatingFee && isSubmitting}
-            <div class="flex items-center space-x-2">
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-verusidx-turquoise-deep"></div>
-              <p class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Calculating registration fee...</p>
-            </div>
-          {:else if feeCalculationError}
-            <div class="space-y-2">
-              <p class="text-sm text-yellow-700 dark:text-yellow-300">{feeCalculationError}</p>
-              <p class="text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">
-                Using fallback fee for vrsctest root ID: 100.00000000 VRSCTEST
-              </p>
-            </div>
-          {:else}
-            <div class="space-y-1">
-              <p class="text-sm text-verusidx-stone-dark dark:text-white">
-                Registration fee will be calculated automatically based on:
-              </p>
-              <ul class="text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist ml-4 space-y-1">
-                <li>• {!formData.parentNameOrId ? 'Root ID' : 'Sub-ID'} type</li>
-                <li>• Currency: {!formData.parentNameOrId ? 'VRSCTEST' : formData.parentNameOrId.toUpperCase()}</li>
-                {#if formData.referral && formData.referral.trim() !== ''}
-                  <li>• Referral discount from: {formData.referral}</li>
-                {/if}
-              </ul>
-              <p class="text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist pt-2">
-                The fee will be deducted from your source address during identity creation
-              </p>
-            </div>
-          {/if}
-        </div>
 
         <!-- Buttons -->
-        <div class="flex space-x-4 pt-6">
-          <button
-            type="button"
-            onclick={goBackToNameReservation}
-            class="px-6 py-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium text-verusidx-stone-dark dark:text-white rounded-lg hover:bg-verusidx-mountain-mist dark:hover:bg-verusidx-stone-medium transition-colors"
-          >
-            Back
-          </button>
+        <div class="flex justify-end pt-6">
           <button
             type="submit"
             disabled={isSubmitting}
-            class="flex-1 px-6 py-3 bg-verusidx-mountain-blue hover:bg-verusidx-lake-blue text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-6 py-3 bg-verusidx-mountain-blue hover:bg-verusidx-lake-blue text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-{isSubmitting ? (isCalculatingFee ? 'Calculating Fee...' : 'Creating Identity...') : 'Calculate Fee & Create Identity'}
+            {isSubmitting ? 'Creating Identity...' : 'Create Identity'}
           </button>
         </div>
       </form>

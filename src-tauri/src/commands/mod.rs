@@ -2,7 +2,7 @@
 // These functions are called from the frontend
 
 use crate::rpc::{VerusRpcClient, RpcCredentials, ChainConfig, SupportedChain, ChainDiscovery, CredentialManager, CurrencyDefinition};
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::State;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -116,11 +116,82 @@ pub async fn list_identities(chain: Option<String>, state: State<'_, AppState>) 
 pub async fn get_identity(name: String, chain: Option<String>, state: State<'_, AppState>) -> Result<Value, String> {
     let client_guard = state.active_client.read().await;
     let client = client_guard.as_ref().ok_or("No active RPC connection")?;
-    
+
     // Use the RPC client method to handle chain parameters properly
     client.get_identity(&name, None, None, None, chain.as_deref())
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_identity_content(
+    name: String,
+    heightstart: Option<u64>,
+    heightend: Option<u64>,
+    txproofs: Option<bool>,
+    vdxfkey: Option<String>,
+    chain: Option<String>,
+    state: State<'_, AppState>
+) -> Result<Value, String> {
+    let client_guard = state.active_client.read().await;
+    let client = client_guard.as_ref().ok_or("No active RPC connection")?;
+
+    client.get_identity_content(
+        &name,
+        heightstart,
+        heightend,
+        txproofs,
+        vdxfkey.as_deref(),
+        chain.as_deref()
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn verify_message(
+    taddr_or_identity: String,
+    signature: String,
+    message: String,
+    checklatest: Option<bool>,
+    chain: Option<String>,
+    state: State<'_, AppState>
+) -> Result<bool, String> {
+    let client_guard = state.active_client.read().await;
+    let client = client_guard.as_ref().ok_or("No active RPC connection")?;
+
+    client.verify_message(
+        &taddr_or_identity,
+        &signature,
+        &message,
+        checklatest,
+        chain.as_deref()
+    )
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn verify_hash(
+    taddr_or_identity: String,
+    signature: String,
+    hexhash: String,
+    checklatest: Option<bool>,
+    chain: Option<String>,
+    state: State<'_, AppState>
+) -> Result<bool, String> {
+    let client_guard = state.active_client.read().await;
+    let client = client_guard.as_ref().ok_or("No active RPC connection")?;
+
+    client.verify_hash(
+        &taddr_or_identity,
+        &signature,
+        &hexhash,
+        checklatest,
+        chain.as_deref()
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -217,6 +288,24 @@ pub async fn get_currency_converters(
     let currency_refs: Vec<&str> = currencies.iter().map(|s| s.as_str()).collect();
     
     client.get_currency_converters(currency_refs)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_currency_state(
+    currency_name: String,
+    height_range: Option<String>,
+    conversion_currency: Option<String>,
+    state: State<'_, AppState>
+) -> Result<Value, String> {
+    let client_guard = state.active_client.read().await;
+    let client = client_guard.as_ref().ok_or("No active RPC connection")?;
+    
+    let height_range_ref = height_range.as_ref().map(|s| s.as_str());
+    let conversion_currency_ref = conversion_currency.as_ref().map(|s| s.as_str());
+    
+    client.get_currency_state(&currency_name, height_range_ref, conversion_currency_ref)
         .await
         .map_err(|e| e.to_string())
 }
@@ -634,12 +723,16 @@ pub async fn update_identity(
         params.push(serde_json::json!(false));
     }
     
+    // When source_of_funds is provided, automatically use standard fee if not specified
     if let Some(fee) = fee_offer {
         params.push(serde_json::json!(fee));
+    } else if source_of_funds.is_some() {
+        // Automatically use 0.0001 fee when sourceoffunds is specified
+        params.push(serde_json::json!(0.0001));
     } else if token_update.is_some() || return_tx.is_some() {
         params.push(serde_json::json!(""));
     }
-    
+
     if let Some(source) = source_of_funds {
         params.push(serde_json::json!(source));
     }
@@ -737,30 +830,39 @@ pub async fn register_identity(
 ) -> Result<Value, String> {
     let client_guard = state.active_client.read().await;
     let client = client_guard.as_ref().ok_or("No active RPC connection")?;
-    
+
     // Construct the complete registeridentity payload as per Verus RPC spec
     let registration_payload = serde_json::json!({
         "txid": txid,
         "namereservation": namereservation,
         "identity": identity
     });
-    
+
     // Build parameters array for RPC call
+    // IMPORTANT: registeridentity expects POSITIONAL parameters: [payload, returntx, feeoffer, sourceoffunds]
+    // We must maintain proper order - can't skip params in the middle
     let mut params = vec![registration_payload];
-    
-    // Only add optional parameters when they have actual values
-    if let Some(return_transaction) = return_tx {
+
+    // Determine if we need to add optional params (if any are present, we need proper positional order)
+    if fee_offer.is_some() || source_of_funds.is_some() || return_tx.is_some() {
+        // Always include return_tx if we're adding any other params
+        let return_transaction = return_tx.unwrap_or(false);
         params.push(serde_json::json!(return_transaction));
+
+        // If we have source_of_funds, we MUST include feeoffer (even if 0) to maintain position
+        if source_of_funds.is_some() {
+            let fee = fee_offer.unwrap_or(0.0);
+            params.push(serde_json::json!(fee));
+
+            if let Some(source) = source_of_funds {
+                params.push(serde_json::json!(source));
+            }
+        } else if let Some(fee) = fee_offer {
+            // We have feeoffer but no source_of_funds
+            params.push(serde_json::json!(fee));
+        }
     }
-    
-    if let Some(fee) = fee_offer {
-        params.push(serde_json::json!(fee));
-    }
-    
-    if let Some(source) = source_of_funds {
-        params.push(serde_json::json!(source));
-    }
-    
+
     // Make direct RPC call to registeridentity
     client.call("registeridentity", serde_json::json!(params))
         .await
@@ -923,9 +1025,107 @@ pub async fn z_get_operation_status(
 ) -> Result<Value, String> {
     let client_guard = state.active_client.read().await;
     let client = client_guard.as_ref().ok_or("No active RPC connection")?;
-    
+
     client.z_get_operation_status(operation_ids, chain.as_deref())
         .await
         .map(|r| serde_json::to_value(r).unwrap())
+        .map_err(|e| e.to_string())
+}
+
+// vlotto Commands
+
+/// Send vlotto ticket to graveyard address
+/// This transfers ticket ownership to the graveyard, making it eligible for unsold ticket handling
+#[tauri::command]
+pub async fn send_ticket_to_graveyard(
+    ticket_identity_address: String,
+    source_of_funds: Option<String>,
+    chain: Option<String>,
+    state: State<'_, AppState>
+) -> Result<Value, String> {
+    let client_guard = state.active_client.read().await;
+    let client = client_guard.as_ref().ok_or("No active RPC connection")?;
+
+    // Step 1: Get current ticket identity using identity address
+    let identity_result = client.get_identity(
+        &ticket_identity_address,
+        None,
+        None,
+        None,
+        chain.as_deref()
+    ).await.map_err(|e| e.to_string())?;
+
+    // Extract identity details
+    let identity_obj = identity_result.get("identity")
+        .ok_or("Identity object not found in response")?;
+
+    let name = identity_obj.get("name")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing identity name")?
+        .to_string();
+
+    let parent = identity_obj.get("parent")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing parent")?
+        .to_string();
+
+    let identity_address = identity_obj.get("identityaddress")
+        .and_then(|v| v.as_str())
+        .ok_or("Missing identity address")?
+        .to_string();
+
+    let contentmultimap = identity_obj.get("contentmultimap")
+        .cloned();
+
+    // Step 2: Determine graveyard address based on chain
+    let graveyard_address = if let Some(chain_str) = chain.as_ref() {
+        if chain_str.to_lowercase() == "vrsctest" {
+            "RMzd5vMptsxxz1tWH2FeSdUgRSNgS4G52w"
+        } else {
+            "RAXCjm9Z4RJWEmsNgo83B8JevTcJRt6Tj5"
+        }
+    } else {
+        // Default to testnet
+        "RMzd5vMptsxxz1tWH2FeSdUgRSNgS4G52w"
+    };
+
+    // Step 3: Build identity JSON for updateidentity RPC
+    let mut identity_json = serde_json::json!({
+        "name": name,
+        "parent": parent,
+        "primaryaddresses": vec![graveyard_address],
+        "minimumsignatures": 1,
+        "revocationauthority": identity_address.clone(),
+        "recoveryauthority": identity_address
+    });
+
+    // Add contentmultimap if present
+    if let Some(cm) = contentmultimap {
+        identity_json["contentmultimap"] = cm;
+    }
+
+    // Step 4: Build params array with correct parameter order
+    // updateidentity params: [identity_json, return_tx, token_update, fee_offer, source_of_funds]
+    let mut params = vec![identity_json];
+
+    // Always add return_tx and token_update
+    params.push(json!(false)); // return_tx
+    params.push(json!(false)); // token_update
+
+    // Add fee_offer - must be 0.0001 if source_of_funds is provided, empty string otherwise
+    if source_of_funds.is_some() {
+        params.push(json!(0.0001));
+    } else {
+        params.push(json!(""));
+    }
+
+    // Add source_of_funds if provided
+    if let Some(source) = source_of_funds {
+        params.push(json!(source));
+    }
+
+    // Step 5: Make direct RPC call to updateidentity
+    client.call("updateidentity", json!(params))
+        .await
         .map_err(|e| e.to_string())
 }

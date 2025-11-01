@@ -262,7 +262,7 @@
         
         <button
           onclick={disconnect}
-          class="px-4 py-2 bg-verusidx-lake-deep text-white rounded-lg hover:bg-verusidx-mountain-blue transition-colors"
+          class="px-4 py-2 bg-verusidx-lake-deep dark:bg-verusidx-turquoise-deep text-white rounded-lg hover:bg-verusidx-mountain-blue dark:hover:bg-verusidx-turquoise-bright transition-colors"
         >
           Home
         </button>
@@ -566,13 +566,13 @@
       <div class="mt-8 space-y-4">
         <!-- Top row -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button 
-            onclick={disconnect}
-            class="w-full p-6 bg-white dark:bg-verusidx-stone-dark rounded-lg shadow-xl hover:shadow-2xl transition-all text-center"
+          <a
+            href="/vlotto"
+            class="p-6 bg-white dark:bg-verusidx-stone-dark rounded-lg shadow-xl hover:shadow-2xl transition-all text-center"
           >
-            <h4 class="text-lg font-semibold text-verusidx-stone-dark dark:text-white mb-2">Home</h4>
-            <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Chain discovery and selection</p>
-          </button>
+            <h4 class="text-lg font-semibold text-verusidx-stone-dark dark:text-white mb-2">vLotto</h4>
+            <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">View stats and status</p>
+          </a>
           
           <a 
             href="/wallet" 

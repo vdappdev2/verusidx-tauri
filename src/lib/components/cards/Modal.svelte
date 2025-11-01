@@ -5,9 +5,10 @@
     size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
     zIndex?: string;
     onclose?: () => void;
+    preventBackdropClose?: boolean;
   }
 
-  let { isOpen = false, title, size = 'md', zIndex = 'z-50', onclose }: Props = $props();
+  let { isOpen = false, title, size = 'md', zIndex = 'z-50', onclose, preventBackdropClose = false }: Props = $props();
 
   function closeModal() {
     if (onclose) {
@@ -16,13 +17,15 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && isOpen) {
+    if (event.key === 'Escape' && isOpen && !preventBackdropClose) {
       closeModal();
     }
   }
 
   function handleBackdropClick() {
-    closeModal();
+    if (!preventBackdropClose) {
+      closeModal();
+    }
   }
 
   const sizeClasses = $derived({

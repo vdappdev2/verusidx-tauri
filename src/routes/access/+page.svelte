@@ -87,9 +87,9 @@
               <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
             </svg>
           </div>
-          <h1 class="text-3xl font-bold text-verusidx-stone-dark dark:text-white mb-2">Marketplace Access Required</h1>
+          <h1 class="text-3xl font-bold text-verusidx-stone-dark dark:text-white mb-2">Access Required</h1>
           <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">
-            You need a VerusIDX sub-identity to access the marketplace on {connectionState?.chainName || 'this chain'}.
+            You need a VerusIDX sub-identity to access the app on {connectionState?.chainName || 'this chain'}.
           </p>
         </div>
 
@@ -98,15 +98,15 @@
           <ul class="space-y-2 text-sm text-verusidx-stone-medium dark:text-verusidx-mountain-mist">
             <li class="flex items-start">
               <span class="text-verusidx-turquoise-deep dark:text-verusidx-turquoise-light mr-2">•</span>
-              <span>A sub-identity (name@) under the VerusIDX parent identity</span>
+              <span>A namespace under the VerusIDX parent identity</span>
             </li>
             <li class="flex items-start">
               <span class="text-verusidx-turquoise-deep dark:text-verusidx-turquoise-light mr-2">•</span>
-              <span>Required for creating and taking offers in the marketplace</span>
+              <span>All the same functionality as a root VerusID (except full currency & chain definitions)</span>
             </li>
             <li class="flex items-start">
               <span class="text-verusidx-turquoise-deep dark:text-verusidx-turquoise-light mr-2">•</span>
-              <span>Provides identity-based access control and reputation</span>
+              <span>Provides identity-based access control to this app</span>
             </li>
           </ul>
         </div>
@@ -116,7 +116,7 @@
             href="/onboard-subid" 
             class="block w-full px-6 py-3 bg-verusidx-mountain-blue dark:bg-verusidx-turquoise-deep text-white text-center rounded-lg hover:bg-verusidx-lake-blue dark:hover:bg-verusidx-turquoise-bright transition-colors"
           >
-            Get VerusIDX Sub-Identity
+            Get VerusIDX SubID
           </a>
           
           <button 

@@ -4,7 +4,7 @@ mod commands;
 use commands::{
     AppState, greet, 
     get_info, get_wallet_info, get_mining_info, z_get_total_balance, get_blockchain_info, 
-    list_identities, get_identity, list_currencies, get_currency, get_currency_converters, get_offers, list_open_offers, close_offers, make_offer, take_offer,
+    list_identities, get_identity, list_currencies, get_currency, get_currency_converters, get_currency_state, get_offers, list_open_offers, close_offers, make_offer, take_offer,
     discover_chains, get_discovered_chains, connect_to_chain, store_credentials,
     load_credentials, clear_credentials, list_stored_chains, get_expected_config_paths,
     get_block_count, list_address_groupings, estimate_conversion, convert_currency, send_currency,
@@ -32,6 +32,7 @@ pub fn run() {
             list_currencies,
             get_currency,
             get_currency_converters,
+            get_currency_state,
             get_offers,
             list_open_offers,
             close_offers,

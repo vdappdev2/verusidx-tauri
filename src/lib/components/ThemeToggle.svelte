@@ -16,8 +16,8 @@
   }
 
   // Dynamic classes based on variant and theme
-  let buttonClasses = $derived(variant === 'floating' 
-    ? "p-3 rounded-lg bg-verusidx-mountain-blue hover:bg-verusidx-lake-blue text-white shadow-lg transition-all duration-200"
+  let buttonClasses = $derived(variant === 'floating'
+    ? "p-3 rounded-lg bg-verusidx-mountain-blue dark:bg-verusidx-turquoise-deep hover:bg-verusidx-lake-blue dark:hover:bg-verusidx-turquoise-bright text-white shadow-lg transition-all duration-200"
     : "p-2 rounded-lg bg-verusidx-snow-ice dark:bg-verusidx-stone-medium hover:bg-verusidx-mountain-mist dark:hover:bg-verusidx-stone-dark transition-colors");
 
   let iconClasses = $derived(variant === 'floating'

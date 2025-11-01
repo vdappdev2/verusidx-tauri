@@ -84,4 +84,27 @@ impl VerusRpcClient {
     ) -> Result<serde_json::Value, RpcError> {
         self.call("getcurrencyconverters", json!(currencies)).await
     }
+
+    /// Get currency state(s) with optional height range and conversion data
+    pub async fn get_currency_state(
+        &self,
+        currency_name: &str,
+        height_range: Option<&str>,
+        conversion_currency: Option<&str>
+    ) -> Result<serde_json::Value, RpcError> {
+        let mut params = vec![json!(currency_name)];
+        
+        if let Some(range) = height_range {
+            params.push(json!(range));
+            if let Some(conv_currency) = conversion_currency {
+                params.push(json!(conv_currency));
+            }
+        } else if let Some(conv_currency) = conversion_currency {
+            // If only conversion currency is provided, add null for height range
+            params.push(json!(null));
+            params.push(json!(conv_currency));
+        }
+        
+        self.call("getcurrencystate", json!(params)).await
+    }
 }

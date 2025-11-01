@@ -195,9 +195,12 @@
     const identityValid = formData.identity.trim() !== '';
     const blockValueValid = formData.blockValue.trim() !== '';
     const blockValueNumeric = !isNaN(parseInt(formData.blockValue));
-    const blockValuePositive = parseInt(formData.blockValue) > 0;
+    // For absolute timelock, allow 0 or higher. For delay, require > 0
+    const blockValuePositive = formData.timelockType === 'absolute'
+      ? parseInt(formData.blockValue) >= 0
+      : parseInt(formData.blockValue) > 0;
     const notSubmitting = !isSubmitting;
-    
+
     console.log('Form validation:', {
       identityValid,
       blockValueValid,
@@ -208,7 +211,7 @@
       blockValue: formData.blockValue,
       timelockType: formData.timelockType
     });
-    
+
     return identityValid && blockValueValid && blockValueNumeric && blockValuePositive && notSubmitting;
   });
 </script>
@@ -309,7 +312,7 @@
         <input
           id="blockValue"
           type="number"
-          min="1"
+          min={formData.timelockType === 'absolute' ? '0' : '1'}
           bind:value={formData.blockValue}
           placeholder={formData.timelockType === 'absolute' ? 'e.g., 2500000' : 'e.g., 1440'}
           class="w-full p-3 border border-verusidx-mountain-mist dark:border-verusidx-stone-medium rounded-lg bg-white dark:bg-verusidx-stone-dark text-verusidx-stone-dark dark:text-white"

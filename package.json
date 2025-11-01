@@ -24,6 +24,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.6.0",
     "@tauri-apps/plugin-opener": "^2",
+    "lightweight-charts": "^5.0.0",
     "svelte-5-french-toast": "^2.0.6",
     "verus-typescript-primitives": "github:VerusCoin/verus-typescript-primitives"
   },

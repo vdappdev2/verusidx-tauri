@@ -10,21 +10,21 @@
   let rAddresses = $state<string[]>([]);
   let fundingStatus = $state<{
     hasEnoughVerusIDX: boolean;
-    hasEnoughVUSDT: boolean;
+    hasEnoughVUSDC: boolean;
     hasEnoughVRSC: boolean;
     requiredVerusIDX: number;
     requiredVRSC: number;
     currentVerusIDX: number;
-    currentVUSDT: number;
+    currentVUSDC: number;
     currentVRSC: number;
   }>({
     hasEnoughVerusIDX: false,
-    hasEnoughVUSDT: false,
+    hasEnoughVUSDC: false,
     hasEnoughVRSC: false,
     requiredVerusIDX: 0,
     requiredVRSC: 0,
     currentVerusIDX: 0,
-    currentVUSDT: 0,
+    currentVUSDC: 0,
     currentVRSC: 0
   });
   let isLoading = $state(true);
@@ -37,7 +37,7 @@
   let commitmentBlockHeight = $state<number | null>(null);
   let currentBlockHeight = $state<number | null>(null);
   let showingConversionModal = $state(false);
-  let conversionCurrency = $state<'vusdt.veth' | 'VRSC'>('vusdt.veth');
+  let conversionCurrency = $state<'vusdc.veth' | 'VRSC'>('vusdc.veth');
   let toAddresses = $state<string[]>([]);
   let isLoadingToAddresses = $state(false);
   let conversionOperationId = $state<string | null>(null);
@@ -56,8 +56,9 @@
   let isLoadingControlAddresses = $state(false);
   let isLoadingPrimaryAddresses = $state(false);
   let registrationBlockHeight = $state<number | null>(null);
+  let copiedCommitment = $state(false);
 
-  const VERUSIDX_COST_IN_VUSDT = 5.01;
+  const VERUSIDX_COST_IN_VUSDC = 4.01;
 
   // Configuration Toggle - Comment/uncomment to switch environments
   // TESTING CONFIG
@@ -69,7 +70,7 @@
   // PRODUCTION CONFIG
   const CURRENCY_NAME = "VerusIDX";
   const PARENT_NAME = "VerusIDX";
-  const REFERRAL_ID = "VerusIDX@";
+  const REFERRAL_ID = "REF.VerusIDX@";
   const UI_CURRENCY_DISPLAY = "VerusIDX";
 
   connectionStore.subscribe(state => {
@@ -184,17 +185,17 @@
       console.log("Reserve balance contents:", walletInfo.reserve_balance);
       
       const currentVerusIDX = walletInfo.reserve_balance?.[CURRENCY_NAME] || 0;
-      const currentVUSDT = walletInfo.reserve_balance?.["vUSDT.vETH"] || 0;
+      const currentVUSDC = walletInfo.reserve_balance?.["vUSDC.vETH"] || 0;
       const currentVRSC = walletInfo.balance || 0;
-      
+
       console.log(`Looking for ${CURRENCY_NAME}:`, walletInfo.reserve_balance?.[CURRENCY_NAME]);
-      console.log("Looking for vUSDT.vETH:", walletInfo.reserve_balance?.["vUSDT.vETH"]);
+      console.log("Looking for vUSDC.vETH:", walletInfo.reserve_balance?.["vUSDC.vETH"]);
       console.log("VRSC balance:", currentVRSC);
 
-      // Calculate how much agents we need (equivalent to 0.29 vusdt.veth)
+      // Calculate how much VerusIDX we need (equivalent to 4.01 vusdc.veth)
       const conversionResult = await invoke("estimate_conversion", {
-        currency: "vusdt.veth",
-        amount: VERUSIDX_COST_IN_VUSDT,
+        currency: "vusdc.veth",
+        amount: VERUSIDX_COST_IN_VUSDC,
         convertto: PARENT_NAME
       }) as any;
 
@@ -209,7 +210,7 @@
       const vrscReserve = reserveCurrencies.find(currency => currency.currencyid === vrscCurrencyId);
       
       if (vrscReserve) {
-        // Calculate VRSC needed: agents_needed × vrsc_price_in_reserve
+        // Calculate VRSC needed: verusidx_needed × vrsc_price_in_reserve
         const calculatedVRSC = requiredVerusIDX * vrscReserve.priceinreserve;
         
         // Verify calculation with estimate_conversion call
@@ -232,12 +233,12 @@
       // Update funding status
       fundingStatus = {
         hasEnoughVerusIDX: currentVerusIDX >= requiredVerusIDX,
-        hasEnoughVUSDT: currentVUSDT >= VERUSIDX_COST_IN_VUSDT,
+        hasEnoughVUSDC: currentVUSDC >= VERUSIDX_COST_IN_VUSDC,
         hasEnoughVRSC: currentVRSC >= requiredVRSC,
         requiredVerusIDX,
         requiredVRSC,
         currentVerusIDX,
-        currentVUSDT,
+        currentVUSDC,
         currentVRSC
       };
 
@@ -266,7 +267,7 @@
     }
   }
 
-  async function convertToVerusIDX(fromCurrency: 'vusdt.veth' | 'VRSC') {
+  async function convertToVerusIDX(fromCurrency: 'vusdc.veth' | 'VRSC') {
     console.log("convertToVerusIDX called with:", fromCurrency);
     console.log("From address:", selectedFromAddress);
     console.log("To address:", selectedToAddress);
@@ -280,7 +281,7 @@
     errorMessage = '';
 
     try {
-      let amount = fromCurrency === 'vusdt.veth' ? VERUSIDX_COST_IN_VUSDT : fundingStatus.requiredVRSC;
+      let amount = fromCurrency === 'vusdc.veth' ? VERUSIDX_COST_IN_VUSDC : fundingStatus.requiredVRSC;
       
       // Add validation
       console.log("Amount to convert:", amount);
@@ -440,8 +441,8 @@
         // Continue polling despite error
       }
     }, 5000); // Poll every 5 seconds
-    
-    // Timeout after 10 minutes
+
+    // Timeout after 15 minutes
     setTimeout(() => {
       clearInterval(pollInterval);
       if (currentStep === 'waiting') {
@@ -449,7 +450,7 @@
         currentStep = 'register';
         isProcessing = false;
       }
-    }, 600000);
+    }, 900000);
   }
 
   async function completeIdentityRegistration() {
@@ -481,28 +482,66 @@
         primaryaddresses: [selectedPrimaryAddress],
         minimumsignatures: 1
       };
-      
-      const registrationResult = await invoke("register_identity", {
-        txid: commitmentResponse.txid,
-        namereservation: commitmentResponse.namereservation,
-        identity: identityObject,
-        return_tx: false,
-        fee_offer: null,
-        source_of_funds: null
-      });
 
-      console.log("Identity registration result:", registrationResult);
-      
-      // Get current block height for final confirmation wait
-      currentBlockHeight = await invoke("get_block_count");
-      registrationBlockHeight = currentBlockHeight;
-      
-      // Move to finalizing step
-      currentStep = 'finalizing';
-      
-      // Start polling for block confirmation before redirect
-      pollForRegistrationConfirmation();
-      
+      // First attempt: Call with null feeOffer to get daemon's expected fee
+      try {
+        const registrationResult = await invoke("register_identity", {
+          txid: commitmentResponse.txid,
+          namereservation: commitmentResponse.namereservation,
+          identity: identityObject,
+          return_tx: false,
+          fee_offer: null,
+          source_of_funds: null
+        });
+
+        // If first attempt succeeds (shouldn't happen for reserve-priced fees but handle it)
+        console.log("Identity registration result:", registrationResult);
+
+        // Get current block height for final confirmation wait
+        currentBlockHeight = await invoke("get_block_count");
+        registrationBlockHeight = currentBlockHeight;
+
+        // Move to finalizing step
+        currentStep = 'finalizing';
+
+        // Start polling for block confirmation before redirect
+        pollForRegistrationConfirmation();
+
+      } catch (firstErr) {
+        // Parse the error message to extract required fee
+        const errorStr = typeof firstErr === 'string' ? firstErr : String(firstErr);
+        const feeMatch = errorStr.match(/Fee offer must be at least ([\d.]+)/);
+
+        if (feeMatch && feeMatch[1]) {
+          const requiredFee = parseFloat(feeMatch[1]);
+
+          // Second attempt: Retry with the required fee
+          const registrationResult = await invoke("register_identity", {
+            txid: commitmentResponse.txid,
+            namereservation: commitmentResponse.namereservation,
+            identity: identityObject,
+            return_tx: false,
+            fee_offer: requiredFee,
+            source_of_funds: null
+          });
+
+          console.log("Identity registration result (with fee):", registrationResult);
+
+          // Get current block height for final confirmation wait
+          currentBlockHeight = await invoke("get_block_count");
+          registrationBlockHeight = currentBlockHeight;
+
+          // Move to finalizing step
+          currentStep = 'finalizing';
+
+          // Start polling for block confirmation before redirect
+          pollForRegistrationConfirmation();
+        } else {
+          // Error didn't match expected pattern, show original error to user
+          throw firstErr;
+        }
+      }
+
     } catch (error) {
       errorMessage = `Identity registration failed: ${error}`;
       console.error("Identity registration failed:", error);
@@ -542,7 +581,7 @@
     }, 600000);
   }
 
-  function showConversionModal(currency: 'vusdt.veth' | 'VRSC') {
+  function showConversionModal(currency: 'vusdc.veth' | 'VRSC') {
     // Check if funding status is loaded
     if (currency === 'VRSC' && (!fundingStatus.requiredVRSC || fundingStatus.requiredVRSC <= 0)) {
       errorMessage = "Please wait for funding requirements to load";
@@ -564,11 +603,10 @@
   
   async function checkOperationStatus(opid: string) {
     if (!opid) return;
-    
+
     try {
       const status = await invoke("z_get_operation_status", {
-        operation_ids: [opid],
-        chain: getChainParam(connectionState.selectedChain)
+        operation_ids: [opid]
       });
       
       if (Array.isArray(status) && status.length > 0) {
@@ -595,14 +633,42 @@
     console.log("Selected to address:", selectedToAddress);
     console.log("Conversion currency:", conversionCurrency);
     console.log("Is processing:", isProcessing);
-    
+
     if (!selectedFromAddress || !selectedToAddress) {
       errorMessage = "Please select both from and to addresses";
       return;
     }
-    
+
     await convertToVerusIDX(conversionCurrency);
     // Don't close modal immediately - let convertToVerusIDX handle success display
+  }
+
+  async function copyCommitmentToClipboard() {
+    if (!commitmentResponse) return;
+
+    try {
+      // Reorder the JSON to show txid first and namereservation fields in specific order
+      const orderedResult = {
+        txid: commitmentResponse.txid,
+        namereservation: {
+          version: commitmentResponse.namereservation?.version,
+          name: commitmentResponse.namereservation?.name,
+          parent: commitmentResponse.namereservation?.parent,
+          salt: commitmentResponse.namereservation?.salt,
+          referral: commitmentResponse.namereservation?.referral,
+          nameid: commitmentResponse.namereservation?.nameid
+        }
+      };
+
+      const json = JSON.stringify(orderedResult, null, 2);
+      await navigator.clipboard.writeText(json);
+      copiedCommitment = true;
+      setTimeout(() => {
+        copiedCommitment = false;
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
   }
 
   // Start periodic wallet refresh after conversion
@@ -722,7 +788,7 @@
       <div class="flex justify-between items-center">
         <div>
           <h1 class="text-3xl font-bold text-verusidx-stone-dark dark:text-white">Create {UI_CURRENCY_DISPLAY} Sub-Identity</h1>
-          <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Get your marketplace access by creating a {UI_CURRENCY_DISPLAY} sub-identity</p>
+          <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Get access by creating a {UI_CURRENCY_DISPLAY} Sub-ID</p>
         </div>
         <button 
           onclick={disconnectAndGoHome}
@@ -795,8 +861,8 @@
       <div class="bg-white dark:bg-verusidx-stone-dark rounded-lg shadow-xl p-6 mb-8">
         <h3 class="text-lg font-semibold text-verusidx-stone-dark dark:text-white mb-4">Funding Status</h3>
         <p class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mb-4">
-          Sub-identity registration costs {fundingStatus.requiredVerusIDX.toFixed(8)} {UI_CURRENCY_DISPLAY} 
-          (equivalent to {VERUSIDX_COST_IN_VUSDT} vUSDT.vETH)
+          Sub-identity registration costs {fundingStatus.requiredVerusIDX.toFixed(8)} {UI_CURRENCY_DISPLAY}
+          (equivalent to {VERUSIDX_COST_IN_VUSDC} vUSDC.vETH)
         </p>
         
         {#if isWaitingForFunds && !fundingStatus.hasEnoughVerusIDX}
@@ -840,22 +906,22 @@
             </div>
           </div>
 
-          <!-- VUSDT Balance -->
-          <div class="flex justify-between items-center p-4 border rounded-lg {fundingStatus.hasEnoughVUSDT ? 'border-verusidx-turquoise-light bg-verusidx-forest-deep/10' : 'border-verusidx-mountain-mist'}">
+          <!-- VUSDC Balance -->
+          <div class="flex justify-between items-center p-4 border rounded-lg {fundingStatus.hasEnoughVUSDC ? 'border-verusidx-turquoise-light bg-verusidx-forest-deep/10' : 'border-verusidx-mountain-mist'}">
             <div>
-              <div class="font-medium text-verusidx-stone-dark dark:text-white">vUSDT.vETH</div>
-              <div class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Current: {fundingStatus.currentVUSDT.toFixed(8)}</div>
-              <div class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Required: {VERUSIDX_COST_IN_VUSDT}</div>
+              <div class="font-medium text-verusidx-stone-dark dark:text-white">vUSDC.vETH</div>
+              <div class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Current: {fundingStatus.currentVUSDC.toFixed(8)}</div>
+              <div class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Required: {VERUSIDX_COST_IN_VUSDC}</div>
             </div>
             <div class="text-sm flex items-center space-x-2">
-              {#if fundingStatus.hasEnoughVUSDT}
+              {#if fundingStatus.hasEnoughVUSDC}
                 <span class="px-3 py-1 bg-verusidx-forest-deep/20 text-verusidx-forest-deep rounded">✓ Sufficient</span>
               {:else}
                 <span class="px-3 py-1 bg-verusidx-lake-deep/20 text-verusidx-lake-deep rounded">✗ Insufficient</span>
               {/if}
-              {#if !fundingStatus.hasEnoughVerusIDX && fundingStatus.hasEnoughVUSDT}
+              {#if !fundingStatus.hasEnoughVerusIDX && fundingStatus.hasEnoughVUSDC}
                 <button
-                  onclick={() => showConversionModal('vusdt.veth')}
+                  onclick={() => showConversionModal('vusdc.veth')}
                   disabled={isProcessing}
                   class="px-3 py-1 bg-verusidx-mountain-blue dark:bg-verusidx-turquoise-deep text-white text-xs rounded hover:bg-verusidx-lake-blue dark:hover:bg-verusidx-turquoise-bright disabled:opacity-50 transition-colors"
                 >
@@ -878,7 +944,7 @@
               {:else}
                 <span class="px-3 py-1 bg-verusidx-lake-deep/20 text-verusidx-lake-deep rounded">✗ Insufficient</span>
               {/if}
-              {#if !fundingStatus.hasEnoughVerusIDX && !fundingStatus.hasEnoughVUSDT && fundingStatus.hasEnoughVRSC}
+              {#if !fundingStatus.hasEnoughVerusIDX && !fundingStatus.hasEnoughVUSDC && fundingStatus.hasEnoughVRSC}
                 <button
                   onclick={() => showConversionModal('VRSC')}
                   disabled={isProcessing}
@@ -897,7 +963,7 @@
         <div class="bg-white dark:bg-verusidx-stone-dark rounded-lg shadow-xl p-6">
           <h3 class="text-lg font-semibold text-verusidx-stone-dark dark:text-white mb-4">Register Your Sub-Identity</h3>
           <p class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mb-4">
-            Choose a name for your {UI_CURRENCY_DISPLAY} sub-identity. Names can include letters, numbers, spaces, and emojis.
+            Choose a name for your {UI_CURRENCY_DISPLAY} subID. Names can include letters, numbers, spaces, and emojis.
           </p>
           
           <div class="space-y-4">
@@ -960,6 +1026,41 @@
       {#if currentStep === 'waiting'}
         <div class="bg-white dark:bg-verusidx-stone-dark rounded-lg shadow-xl p-6">
           <h3 class="text-lg font-semibold text-verusidx-stone-dark dark:text-white mb-4">Waiting for Block Confirmation</h3>
+
+          {#if commitmentResponse}
+            <div class="bg-verusidx-lake-deep/10 dark:bg-verusidx-turquoise-deep/20 border border-verusidx-turquoise-light dark:border-verusidx-turquoise-deep rounded-lg p-4 mb-4">
+              <p class="text-sm text-verusidx-stone-dark dark:text-white">
+                💡 <span class="font-medium">Tip:</span> Save the commitment data below for your records. You'll need it if you need to recover this registration.
+              </p>
+            </div>
+
+            <div class="bg-verusidx-snow-ice dark:bg-verusidx-stone-medium rounded-lg p-4 mb-4">
+              <div class="flex justify-between items-center mb-2">
+                <p class="text-sm font-medium text-verusidx-stone-dark dark:text-white">Name Commitment Data</p>
+                <button
+                  onclick={copyCommitmentToClipboard}
+                  class="px-3 py-1 text-xs bg-verusidx-mountain-blue hover:bg-verusidx-lake-blue dark:bg-verusidx-turquoise-deep dark:hover:bg-verusidx-turquoise-bright text-white rounded transition-colors"
+                >
+                  {copiedCommitment ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <pre class="text-xs font-mono text-verusidx-mountain-grey dark:text-verusidx-mountain-mist bg-white dark:bg-verusidx-stone-dark p-3 rounded overflow-x-auto max-h-64">{JSON.stringify({
+  txid: commitmentResponse.txid,
+  namereservation: {
+    version: commitmentResponse.namereservation?.version,
+    name: commitmentResponse.namereservation?.name,
+    parent: commitmentResponse.namereservation?.parent,
+    salt: commitmentResponse.namereservation?.salt,
+    referral: commitmentResponse.namereservation?.referral,
+    nameid: commitmentResponse.namereservation?.nameid
+  }
+}, null, 2)}</pre>
+              <p class="text-xs text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mt-2">
+                Save this data for your records. You'll need it if you need to recover this registration.
+              </p>
+            </div>
+          {/if}
+
           <div class="text-center py-8">
             <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mb-2">Name commitment submitted successfully!</p>
             <p class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">
@@ -979,7 +1080,7 @@
         <div class="bg-white dark:bg-verusidx-stone-dark rounded-lg shadow-xl p-6">
           <h3 class="text-lg font-semibold text-verusidx-stone-dark dark:text-white mb-4">Complete Identity Registration</h3>
           <p class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mb-4">
-            Select the primary address for your identity. This address will be associated with your sub-identity.
+            Select the primary address for your identity. This address will be in control of your sub-identity.
           </p>
           
           <div class="space-y-4">
@@ -1040,13 +1141,13 @@
       {/if}
 
       <!-- Insufficient Funds Message -->
-      {#if !fundingStatus.hasEnoughVerusIDX && !fundingStatus.hasEnoughVUSDT && !fundingStatus.hasEnoughVRSC}
+      {#if !fundingStatus.hasEnoughVerusIDX && !fundingStatus.hasEnoughVUSDC && !fundingStatus.hasEnoughVRSC}
         <div class="bg-verusidx-turquoise-bright/10 dark:bg-verusidx-lake-deep/50 border border-verusidx-turquoise-light dark:border-verusidx-turquoise-light rounded-lg p-6">
           <h3 class="text-lg font-medium text-verusidx-turquoise-deep dark:text-verusidx-turquoise-light mb-2">Insufficient Funds</h3>
           <p class="text-verusidx-turquoise-deep dark:text-verusidx-mountain-mist mb-4">
-            You need either {fundingStatus.requiredVerusIDX.toFixed(8)} {UI_CURRENCY_DISPLAY}, 
-            {VERUSIDX_COST_IN_VUSDT} vUSDT.vETH, or {fundingStatus.requiredVRSC.toFixed(8)} VRSC 
-            to create a sub-identity.
+            You need either {fundingStatus.requiredVerusIDX.toFixed(8)} {UI_CURRENCY_DISPLAY},
+            {VERUSIDX_COST_IN_VUSDC} vUSDC.vETH, or {fundingStatus.requiredVRSC.toFixed(8)} VRSC
+            to create a subID.
           </p>
           <p class="text-verusidx-turquoise-deep dark:text-verusidx-mountain-mist text-sm">
             Please acquire the necessary funds and return to this page to continue.
@@ -1124,7 +1225,7 @@
               <div class="text-sm text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">
                 <div class="flex justify-between">
                   <span>Converting:</span>
-                  <span>{conversionCurrency === 'vusdt.veth' ? VERUSIDX_COST_IN_VUSDT : (fundingStatus.requiredVRSC > 0 ? fundingStatus.requiredVRSC.toFixed(8) : 'Loading...')} {conversionCurrency}</span>
+                  <span>{conversionCurrency === 'vusdc.veth' ? VERUSIDX_COST_IN_VUSDC : (fundingStatus.requiredVRSC > 0 ? fundingStatus.requiredVRSC.toFixed(8) : 'Loading...')} {conversionCurrency}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>To:</span>

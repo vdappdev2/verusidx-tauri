@@ -149,7 +149,7 @@
         <div>
           <h1 class="text-3xl font-bold text-verusidx-stone-dark dark:text-white">Currency Management</h1>
           <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">
-            Search and explore currencies on the Verus network
+            Search and explore currencies on the network
           </p>
         </div>
         <a 
@@ -181,7 +181,7 @@
         </div>
         <h3 class="text-2xl font-bold text-verusidx-stone-dark dark:text-white mb-2">Create New Currency</h3>
         <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist mb-6">
-          Choose the type of currency you want to create on the Verus network
+          Choose the type of currency you want to define
         </p>
       </div>
       
@@ -275,7 +275,7 @@
       <!-- Cost Information -->
       <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
         <p class="text-yellow-700 dark:text-yellow-300 text-sm">
-          💰 <strong>Cost:</strong> Currency creation costs 200 VRSC. Ensure your identity has sufficient funds before proceeding.
+          💰 <strong>Cost:</strong> Ensure your identity has sufficient funds before proceeding.
         </p>
       </div>
     </div>

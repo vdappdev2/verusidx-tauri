@@ -53,9 +53,6 @@ jobs:
             ## Requirements
             - Local Verus daemon with RPC enabled
             - macOS 10.15+, Windows 10+, or Linux (Ubuntu 18.04+)
-            
-            ---
-            🤖 Generated with [Claude Code](https://claude.ai/code)
           draft: false
           prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
 

@@ -85,8 +85,14 @@ credentials/
 # Project specific - Development files
 CLAUDE.md
 PRD.md
+CHARTS_PLAN.md
 http 400 issues production build.md
 toast implementation.md
+tradingview implementation.md
+VDXF-ContentMultimap-Reference.md
+contentmultimap vlotto.md
+vlotto-ledger-third-party-guide.html
+roadmap.md
 tcpdump.md
 debug_output.log
 temp_app/
