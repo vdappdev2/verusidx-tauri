@@ -567,11 +567,11 @@
         <!-- Top row -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <a
-            href="/vlotto"
+            href="/charts"
             class="p-6 bg-white dark:bg-verusidx-stone-dark rounded-lg shadow-xl hover:shadow-2xl transition-all text-center"
           >
-            <h4 class="text-lg font-semibold text-verusidx-stone-dark dark:text-white mb-2">vLotto</h4>
-            <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">View stats and status</p>
+            <h4 class="text-lg font-semibold text-verusidx-stone-dark dark:text-white mb-2">Charts</h4>
+            <p class="text-verusidx-mountain-grey dark:text-verusidx-mountain-mist">Tradingview Lightweight Charts</p>
           </a>
           
           <a 
