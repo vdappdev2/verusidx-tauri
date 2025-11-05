@@ -416,11 +416,13 @@ pub struct IdentityUpdate {
     pub recoveryauthority: Option<String>,
     pub privateaddress: Option<String>,
     pub timelock: Option<u64>,
+    pub contentmultimap: Option<HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SendCurrencyRequest {
-    pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
     pub amount: f64,
     pub address: String,
     pub convertto: Option<String>,
